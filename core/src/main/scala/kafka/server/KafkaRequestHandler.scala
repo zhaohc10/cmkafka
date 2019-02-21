@@ -17,18 +17,23 @@
 
 package kafka.server
 
+import java.util
+import java.util.Objects
+
 import kafka.network._
 import kafka.utils._
 import kafka.metrics.KafkaMetricsGroup
-import java.util.concurrent.{CountDownLatch, TimeUnit}
+import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicInteger
 
+import com.github.benmanes.caffeine.cache._
 import com.yammer.metrics.core.Meter
+import org.apache.kafka.common.TopicPartition
 import org.apache.kafka.common.internals.FatalExitError
 import org.apache.kafka.common.utils.{KafkaThread, Time}
 
-import scala.collection.mutable
 import scala.collection.JavaConverters._
+import scala.collection.{JavaConversions, mutable}
 
 /**
  * A thread that answers kafka requests.
@@ -141,10 +146,13 @@ class KafkaRequestHandlerPool(val brokerId: Int,
   }
 }
 
-class BrokerTopicMetrics(name: Option[String]) extends KafkaMetricsGroup {
-  val tags: scala.collection.Map[String, String] = name match {
+class BrokerTopicMetrics(topicName: Option[String], partition: Option[String] = None) extends KafkaMetricsGroup {
+  val tags: scala.collection.Map[String, String] = topicName match {
     case None => Map.empty
-    case Some(topic) => Map("topic" -> topic)
+    case Some(topic) => {
+      if(partition.isEmpty) Map("topic" -> topic)
+      else Map("topic" -> topic, "partition" -> partition.get)
+    }
   }
 
   case class MeterWrapper(metricType: String, eventType: String) {
@@ -194,7 +202,7 @@ class BrokerTopicMetrics(name: Option[String]) extends KafkaMetricsGroup {
     BrokerTopicStats.InvalidMessageCrcRecordsPerSec -> MeterWrapper(BrokerTopicStats.InvalidMessageCrcRecordsPerSec, "requests"),
     BrokerTopicStats.InvalidOffsetOrSequenceRecordsPerSec -> MeterWrapper(BrokerTopicStats.InvalidOffsetOrSequenceRecordsPerSec, "requests")
   ).asJava)
-  if (name.isEmpty) {
+  if (topicName.isEmpty) {
     metricTypeMap.put(BrokerTopicStats.ReplicationBytesInPerSec, MeterWrapper(BrokerTopicStats.ReplicationBytesInPerSec, "bytes"))
     metricTypeMap.put(BrokerTopicStats.ReplicationBytesOutPerSec, MeterWrapper(BrokerTopicStats.ReplicationBytesOutPerSec, "bytes"))
   }
@@ -211,11 +219,22 @@ class BrokerTopicMetrics(name: Option[String]) extends KafkaMetricsGroup {
   def bytesRejectedRate = metricTypeMap.get(BrokerTopicStats.BytesRejectedPerSec).meter()
 
   private[server] def replicationBytesInRate =
-    if (name.isEmpty) Some(metricTypeMap.get(BrokerTopicStats.ReplicationBytesInPerSec).meter())
+    if (topicName.isEmpty) Some(metricTypeMap.get(BrokerTopicStats.ReplicationBytesInPerSec).meter())
     else None
 
   private[server] def replicationBytesOutRate =
-    if (name.isEmpty) Some(metricTypeMap.get(BrokerTopicStats.ReplicationBytesOutPerSec).meter())
+    if (topicName.isEmpty) Some(metricTypeMap.get(BrokerTopicStats.ReplicationBytesOutPerSec).meter())
+
+//  val messagesInRate = newMeter(BrokerTopicStats.MessagesInPerSec, "messages", TimeUnit.SECONDS, tags)
+//  val bytesInRate = newMeter(BrokerTopicStats.BytesInPerSec, "bytes", TimeUnit.SECONDS, tags)
+//  val bytesOutRate = newMeter(BrokerTopicStats.BytesOutPerSec, "bytes", TimeUnit.SECONDS, tags)
+//  val bytesRejectedRate = newMeter(BrokerTopicStats.BytesRejectedPerSec, "bytes", TimeUnit.SECONDS, tags)
+//  private[server] val replicationBytesInRate =
+//    if (topicName.isEmpty) Some(newMeter(BrokerTopicStats.ReplicationBytesInPerSec, "bytes", TimeUnit.SECONDS, tags))
+//    else None
+//  private[server] val replicationBytesOutRate =
+//    if (topicName.isEmpty) Some(newMeter(BrokerTopicStats.ReplicationBytesOutPerSec, "bytes", TimeUnit.SECONDS, tags))
+
     else None
 
   def failedProduceRequestRate = metricTypeMap.get(BrokerTopicStats.FailedProduceRequestsPerSec).meter()
@@ -268,16 +287,106 @@ object BrokerTopicStats {
   val InvalidOffsetOrSequenceRecordsPerSec = "InvalidOffsetOrSequenceRecordsPerSec"
 
   private val valueFactory = (k: String) => new BrokerTopicMetrics(Some(k))
+  private val topicPartitionValueFactory = (k: (String, Integer)) => new BrokerTopicMetrics(Some(k._1), Some(k._2.toString))
+}
+
+class ProducerStats(producerCacheMaxSize: Int, producerCacheExpiryMs: Long) extends Logging {
+  Objects.requireNonNull(producerCacheMaxSize, "producerCacheMaxSize can not be null")
+  Objects.requireNonNull(producerCacheExpiryMs, "producerCacheExpiryMs can not be null")
+
+  private val factory = (k: (String, TopicPartition)) => new BrokerClientMetrics(k._1, k._2)
+  private val clientMetrics = new Pool[(String, TopicPartition), BrokerClientMetrics](Some(factory))
+
+  private val removalListener = new RemovalListener[String, util.Collection[TopicPartition]] {
+    override def onRemoval(key: String, value: util.Collection[TopicPartition], cause: RemovalCause): Unit = {
+      debug(s"Cache removal listener invoked for key: $key and value as $value")
+      removeMetrics(key, value)
+    }
+  }
+
+  private val cacheLoader = new CacheLoader[String, util.Collection[TopicPartition]]() {
+    override def load(key: String): util.Collection[TopicPartition] = ConcurrentHashMap.newKeySet()
+  }
+
+  private val clientTopicPartitions: LoadingCache[String, util.Collection[TopicPartition]] = Caffeine.newBuilder()
+    .expireAfterWrite(producerCacheExpiryMs, TimeUnit.MILLISECONDS)
+    .expireAfterAccess(producerCacheExpiryMs, TimeUnit.MILLISECONDS)
+    .maximumSize(producerCacheMaxSize)
+    .initialCapacity(producerCacheMaxSize/2)
+    .removalListener(removalListener)
+    .build(cacheLoader)
+
+  // clears cache every 5 mins as caffeine cache does not guarantee to remove entries as soon as expired.
+  // This gives deterministic behavior about producers considered to be inactive as those metrics are removed.
+  Executors.newScheduledThreadPool(1, new ThreadFactory {
+    override def newThread(r: Runnable): Thread = {
+      val thread = Executors.defaultThreadFactory().newThread(r)
+      thread.setName("client-topic-metrics-cache-cleanup-thread")
+      thread.setDaemon(true)
+      thread
+    }
+  }).scheduleWithFixedDelay(new Runnable {
+    override def run(): Unit = {
+      clientTopicPartitions.cleanUp()
+    }
+  }, 5, 300, TimeUnit.SECONDS)
+
+  def clientMetrics(clientId:String, topicPartition: TopicPartition): BrokerClientMetrics = {
+    Objects.requireNonNull(topicPartition, "topicPartition can not be null")
+    val topicPartitions = clientTopicPartitions.get(clientId)
+    if(topicPartitions != null) topicPartitions.add(topicPartition)
+    // setting the value as get may invalidate before returning the value.
+    clientTopicPartitions.put(clientId, topicPartitions)
+
+    clientMetrics.getAndMaybePut(Tuple2(clientId, topicPartition))
+  }
+
+  def removeMetrics(clientId: String) {
+    val partitions: util.Collection[TopicPartition] = clientTopicPartitions.getIfPresent(clientId)
+    removeMetrics(clientId, partitions)
+  }
+
+  private def removeMetrics(clientId: String, partitions: util.Collection[TopicPartition]) = {
+    debug(s"Removing clientId: $clientId with partitions: $partitions")
+    if (partitions != null && !partitions.isEmpty) {
+      JavaConversions.collectionAsScalaIterable(partitions).foreach(tp => {
+        val metrics = clientMetrics.remove((clientId, tp))
+        if (metrics != null) metrics.close()
+      })
+    }
+  }
+
+  def close(): Unit = {
+    clientMetrics.values.foreach(_.close())
+  }
+}
+
+class BrokerClientMetrics(clientId:String, topicPartition: TopicPartition) extends Logging with KafkaMetricsGroup {
+  val tags: scala.collection.Map[String, String] =
+    Map("clientId"-> clientId, "topic" -> topicPartition.topic, "partition" -> topicPartition.partition.toString)
+
+  val messagesInRate = newMeter(BrokerTopicStats.MessagesInPerSec, "messages", TimeUnit.SECONDS, tags)
+
+  def close(): Unit = {
+    removeMetric(BrokerTopicStats.MessagesInPerSec, tags)
+    debug(s"Removing client metrics $tags")
+  }
 }
 
 class BrokerTopicStats {
   import BrokerTopicStats._
 
-  private val stats = new Pool[String, BrokerTopicMetrics](Some(valueFactory))
+  private val topicStats = new Pool[String, BrokerTopicMetrics](Some(valueFactory))
+  private val topicPartitionStats = new Pool[(String, Integer), BrokerTopicMetrics](Some(topicPartitionValueFactory))
+
   val allTopicsStats = new BrokerTopicMetrics(None)
 
-  def topicStats(topic: String): BrokerTopicMetrics =
-    stats.getAndMaybePut(topic)
+  def topicStats(topic: String, partition: Integer = null): BrokerTopicMetrics = {
+    if(partition != null)
+      topicPartitionStats.getAndMaybePut((topic, partition))
+    else
+      topicStats.getAndMaybePut(topic)
+  }
 
   def updateReplicationBytesIn(value: Long): Unit = {
     allTopicsStats.replicationBytesInRate.foreach { metric =>
@@ -312,24 +421,32 @@ class BrokerTopicStats {
       topicMetrics.closeMetric(BrokerTopicStats.ReplicationBytesInPerSec)
   }
 
-  def removeMetrics(topic: String): Unit = {
-    val metrics = stats.remove(topic)
+
+  def removeMetrics(topic: String) {
+    val metrics = topicStats.remove(topic)
     if (metrics != null)
       metrics.close()
   }
 
-  def updateBytesOut(topic: String, isFollower: Boolean, value: Long): Unit = {
+  def removeMetrics(topicPartition: TopicPartition) {
+    val partitionMetrics = topicPartitionStats.remove(Tuple2(topicPartition.topic, topicPartition.partition))
+    if(partitionMetrics != null) partitionMetrics.close()
+  }
+
+//  def updateBytesOut(topic: String, isFollower: Boolean, value: Long): Unit = {
+  def updateBytesOut(topicPartition: TopicPartition, isFollower: Boolean, value: Long) {
     if (isFollower) {
       updateReplicationBytesOut(value)
     } else {
-      topicStats(topic).bytesOutRate.mark(value)
+      topicStats(topicPartition.topic()).bytesOutRate.mark(value)
+      topicStats(topicPartition.topic(), topicPartition.partition).bytesOutRate.mark(value)
       allTopicsStats.bytesOutRate.mark(value)
     }
   }
 
   def close(): Unit = {
     allTopicsStats.close()
-    stats.values.foreach(_.close())
+    topicStats.values.foreach(_.close())
   }
 
 }

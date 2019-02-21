@@ -72,7 +72,7 @@ allprojects {
     mavenCentral()
     jcenter()
   }
-  
+
   apply plugin: 'idea'
   apply plugin: 'org.owasp.dependencycheck'
   apply plugin: 'com.github.ben-manes.versions'
@@ -838,6 +838,7 @@ project(':core') {
     compile libs.jettyServer
     compile libs.jettyServlet
     compile libs.slf4jlog4j
+    compile libs.caffeine
     compile libs.scalaLibrary
     // only needed transitively, but set it explicitly to ensure it has the same version as scala-library
     compile libs.scalaReflect
@@ -879,7 +880,7 @@ project(':core') {
     scoverage libs.scoveragePlugin
     scoverage libs.scoverageRuntime
   }
-  
+
   scoverage {
     reportDir = file("${rootProject.buildDir}/scoverage")
     highlighting = false

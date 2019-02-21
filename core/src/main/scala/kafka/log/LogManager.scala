@@ -27,9 +27,9 @@ import kafka.server.checkpoints.OffsetCheckpointFile
 import kafka.server.{BrokerState, RecoveringFromUncleanShutdown, _}
 import kafka.utils._
 import kafka.zk.KafkaZkClient
-import org.apache.kafka.common.{KafkaException, TopicPartition}
-import org.apache.kafka.common.utils.Time
 import org.apache.kafka.common.errors.{KafkaStorageException, LogDirNotFoundException}
+import org.apache.kafka.common.utils.Time
+import org.apache.kafka.common.{KafkaException, TopicPartition}
 
 import scala.collection.JavaConverters._
 import scala.collection._
@@ -953,6 +953,13 @@ class LogManager(logDirs: Seq[File],
       }.toList
     }
   }
+
+
+  /**
+   * Get a map of TopicPartition => Log
+   */
+  def logsByTopicPartition: Map[TopicPartition, Log] = (currentLogs.toList ++ futureLogs.toList).toMap
+
 
   /**
    * Delete any eligible logs. Return the number of segments deleted.

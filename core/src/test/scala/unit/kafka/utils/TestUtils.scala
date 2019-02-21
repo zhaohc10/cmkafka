@@ -596,8 +596,9 @@ object TestUtils extends Logging {
                            trustStoreFile: Option[File] = None,
                            saslProperties: Option[Properties] = None,
                            keySerializer: Serializer[K] = new ByteArraySerializer,
-                           valueSerializer: Serializer[V] = new ByteArraySerializer): KafkaProducer[K, V] = {
-    val producerProps = new Properties
+                           valueSerializer: Serializer[V] = new ByteArraySerializer,
+                           props: Option[Properties] = None): KafkaProducer[K, V] = {
+    val producerProps = props.getOrElse(new Properties)
     producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, brokerList)
     producerProps.put(ProducerConfig.ACKS_CONFIG, acks.toString)
     producerProps.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, maxBlockMs.toString)
@@ -1061,8 +1062,9 @@ object TestUtils extends Logging {
 
   def produceMessages(servers: Seq[KafkaServer],
                       records: Seq[ProducerRecord[Array[Byte], Array[Byte]]],
-                      acks: Int = -1): Unit = {
-    val producer = createProducer(TestUtils.getBrokerListStrFromServers(servers), acks = acks)
+                      acks: Int = -1,
+                      props: Option[Properties] = None): Unit = {
+    val producer = createProducer(TestUtils.getBrokerListStrFromServers(servers), acks = acks, props = props)
     try {
       val futures = records.map(producer.send)
       futures.foreach(_.get)
@@ -1077,20 +1079,29 @@ object TestUtils extends Logging {
   def generateAndProduceMessages(servers: Seq[KafkaServer],
                                  topic: String,
                                  numMessages: Int,
-                                 acks: Int = -1): Seq[String] = {
+                                 acks: Int = -1,
+                                 props: Option[Properties] = None): Seq[String] = {
     val values = (0 until numMessages).map(x =>  s"test-$x")
     val intSerializer = new IntegerSerializer()
     val records = values.zipWithIndex.map { case (v, i) =>
       new ProducerRecord(topic, intSerializer.serialize(topic, i), v.getBytes)
     }
     produceMessages(servers, records, acks)
+//=======
+//    val records = values.map(v => new ProducerRecord[Array[Byte], Array[Byte]](topic, v.getBytes))
+//    produceMessages(servers, records, acks, props=props)
+//>>>>>>> 5d1829d2b... Added topic/partition and producer metrics in broker
     values
   }
 
   def produceMessage(servers: Seq[KafkaServer], topic: String, message: String,
-                     deliveryTimeoutMs: Int = 30 * 1000, requestTimeoutMs: Int = 20 * 1000): Unit = {
+//                     deliveryTimeoutMs: Int = 30 * 1000, requestTimeoutMs: Int = 20 * 1000): Unit = {
+//=======
+                     deliveryTimeoutMs: Int = 30 * 1000, requestTimeoutMs: Int = 20 * 1000,
+                     props: Option[Properties] = None) {
+//>>>>>>> 5d1829d2b... Added topic/partition and producer metrics in broker
     val producer = createProducer(TestUtils.getBrokerListStrFromServers(servers),
-      deliveryTimeoutMs = deliveryTimeoutMs, requestTimeoutMs = requestTimeoutMs)
+      deliveryTimeoutMs = deliveryTimeoutMs, requestTimeoutMs = requestTimeoutMs, props=props)
     try {
       producer.send(new ProducerRecord(topic, topic.getBytes, message.getBytes)).get
     } finally {
