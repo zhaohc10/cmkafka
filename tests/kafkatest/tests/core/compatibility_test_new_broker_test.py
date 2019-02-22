@@ -23,7 +23,8 @@ from kafkatest.services.verifiable_producer import VerifiableProducer
 from kafkatest.services.zookeeper import ZookeeperService
 from kafkatest.tests.produce_consume_validate import ProduceConsumeValidateTest
 from kafkatest.utils import is_int
-from kafkatest.version import LATEST_0_8_2, LATEST_0_9, LATEST_0_10_0, LATEST_0_10_1, LATEST_0_10_2, LATEST_0_11_0, LATEST_1_0, LATEST_1_1, LATEST_2_0, LATEST_2_1, LATEST_2_2, LATEST_2_3, DEV_BRANCH, KafkaVersion
+from kafkatest.version import DEV_BRANCH, LATEST_0_10_0, LATEST_0_10_1, LATEST_0_10_2, LATEST_0_11_0, LATEST_1_0, LATEST_1_1, V_0_11_0_0, V_0_10_1_0, KafkaVersion
+from kafkatest.version import CDK_2_1_0, CDK_2_1_1, CDK_2_1_2, CDK_2_2_0, CDK_3_0_0, CDK_3_1_0, CDH_6_0_0
 
 # Compatibility tests for moving to a new broker (e.g., 0.10.x) and using a mix of old and new clients (e.g., 0.9.x)
 class ClientCompatibilityTestNewBroker(ProduceConsumeValidateTest):
@@ -34,7 +35,7 @@ class ClientCompatibilityTestNewBroker(ProduceConsumeValidateTest):
     def setUp(self):
         self.topic = "test_topic"
         self.zk = ZookeeperService(self.test_context, num_nodes=1)
-            
+
         self.zk.start()
 
         # Producer and consumer
@@ -44,14 +45,27 @@ class ClientCompatibilityTestNewBroker(ProduceConsumeValidateTest):
         self.messages_per_producer = 1000
 
     @cluster(num_nodes=6)
+    @parametrize(producer_version=str(CDK_2_0_0), consumer_version=str(CDK_2_0_0), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_0_1), consumer_version=str(CDK_2_0_1), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_0_2), consumer_version=str(CDK_2_0_2), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_1_0), consumer_version=str(CDK_2_1_0), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_1_1), consumer_version=str(CDK_2_1_1), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_1_2), consumer_version=str(CDK_2_1_2), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
+    @parametrize(producer_version=str(CDK_2_2_0), consumer_version=str(CDK_2_2_0), compression_types=["lz4"], timestamp_type=str("CreateTime"))
+    @parametrize(producer_version=str(CDK_3_0_0), consumer_version=str(CDK_3_0_0), compression_types=["gzip"], timestamp_type=str("CreateTime"))
+    @parametrize(producer_version=str(CDK_3_1_0), consumer_version=str(CDK_3_1_0), compression_types=["none"], timestamp_type=str("CreateTime"))
+    @parametrize(producer_version=str(CDH_6_0_0), consumer_version=str(CDH_6_0_0), compression_types=["none"], timestamp_type=str("CreateTime"))
     @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(DEV_BRANCH), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
     @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(DEV_BRANCH), compression_types=["none"], timestamp_type=str("LogAppendTime"))
     @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(LATEST_0_9), compression_types=["none"], new_consumer=False, timestamp_type=None)
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_0), compression_types=["none"], new_consumer=False, timestamp_type=None)
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_1), compression_types=["none"], new_consumer=False, timestamp_type=None)
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_2), compression_types=["none"], new_consumer=False, timestamp_type=None)
     @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(LATEST_0_9), compression_types=["snappy"], timestamp_type=str("CreateTime"))
-    @parametrize(producer_version=str(LATEST_2_2), consumer_version=str(LATEST_2_2), compression_types=["none"], timestamp_type=str("CreateTime"))
-    @parametrize(producer_version=str(LATEST_2_3), consumer_version=str(LATEST_2_3), compression_types=["none"], timestamp_type=str("CreateTime"))
-    @parametrize(producer_version=str(LATEST_2_1), consumer_version=str(LATEST_2_1), compression_types=["zstd"], timestamp_type=str("CreateTime"))
-    @parametrize(producer_version=str(LATEST_2_0), consumer_version=str(LATEST_2_0), compression_types=["snappy"], timestamp_type=str("CreateTime"))
+
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_0), compression_types=["snappy"], timestamp_type=str("CreateTime"))
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_1), compression_types=["snappy"], timestamp_type=str("CreateTime"))
+    @parametrize(producer_version=str(DEV_BRANCH), consumer_version=str(CDK_2_0_2), compression_types=["snappy"], timestamp_type=str("CreateTime"))
     @parametrize(producer_version=str(LATEST_1_1), consumer_version=str(LATEST_1_1), compression_types=["lz4"], timestamp_type=str("CreateTime"))
     @parametrize(producer_version=str(LATEST_1_0), consumer_version=str(LATEST_1_0), compression_types=["none"], timestamp_type=str("CreateTime"))
     @parametrize(producer_version=str(LATEST_0_11_0), consumer_version=str(LATEST_0_11_0), compression_types=["gzip"], timestamp_type=str("CreateTime"))
@@ -59,7 +73,13 @@ class ClientCompatibilityTestNewBroker(ProduceConsumeValidateTest):
     @parametrize(producer_version=str(LATEST_0_10_1), consumer_version=str(LATEST_0_10_1), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
     @parametrize(producer_version=str(LATEST_0_10_0), consumer_version=str(LATEST_0_10_0), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
     @parametrize(producer_version=str(LATEST_0_9), consumer_version=str(DEV_BRANCH), compression_types=["none"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_0), consumer_version=str(DEV_BRANCH), compression_types=["none"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_1), consumer_version=str(DEV_BRANCH), compression_types=["none"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_2), consumer_version=str(DEV_BRANCH), compression_types=["none"], timestamp_type=None)
     @parametrize(producer_version=str(LATEST_0_9), consumer_version=str(DEV_BRANCH), compression_types=["snappy"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_0), consumer_version=str(DEV_BRANCH), compression_types=["snappy"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_1), consumer_version=str(DEV_BRANCH), compression_types=["snappy"], timestamp_type=None)
+    @parametrize(producer_version=str(CDK_2_0_2), consumer_version=str(DEV_BRANCH), compression_types=["snappy"], timestamp_type=None)
     @parametrize(producer_version=str(LATEST_0_9), consumer_version=str(LATEST_0_9), compression_types=["snappy"], timestamp_type=str("LogAppendTime"))
     @parametrize(producer_version=str(LATEST_0_8_2), consumer_version=str(LATEST_0_8_2), compression_types=["none"], new_consumer=False, timestamp_type=None)
     def test_compatibility(self, producer_version, consumer_version, compression_types, new_consumer=True, timestamp_type=None):
@@ -72,7 +92,7 @@ class ClientCompatibilityTestNewBroker(ProduceConsumeValidateTest):
             if timestamp_type is not None:
                 node.config[config_property.MESSAGE_TIMESTAMP_TYPE] = timestamp_type
         self.kafka.start()
-         
+
         self.producer = VerifiableProducer(self.test_context, self.num_producers, self.kafka,
                                            self.topic, throughput=self.producer_throughput,
                                            message_validator=is_int,

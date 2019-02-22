@@ -24,7 +24,8 @@ from kafkatest.services.kafka import KafkaService, config_property
 from kafkatest.services.connect import ConnectDistributedService, VerifiableSource, VerifiableSink, ConnectRestError, MockSink, MockSource
 from kafkatest.services.console_consumer import ConsoleConsumer
 from kafkatest.services.security.security_config import SecurityConfig
-from kafkatest.version import DEV_BRANCH, LATEST_2_3, LATEST_2_2, LATEST_2_1, LATEST_2_0, LATEST_1_1, LATEST_1_0, LATEST_0_11_0, LATEST_0_10_2, LATEST_0_10_1, LATEST_0_10_0, LATEST_0_9, LATEST_0_8_2, KafkaVersion
+from kafkatest.version import DEV_BRANCH, LATEST_0_10_0, LATEST_0_10_1, LATEST_0_10_2, LATEST_0_11_0, LATEST_1_0, LATEST_1_1, V_0_11_0_0, V_0_10_1_0, KafkaVersion
+from kafkatest.version import CDK_2_1_0, CDK_2_1_1, CDK_2_1_2, CDK_2_2_0, CDK_3_0_0, CDK_3_1_0, CDH_6_0_0
 
 from collections import Counter, namedtuple
 import itertools
@@ -98,7 +99,7 @@ class ConnectDistributedTest(Test):
         connector_props = self.render(config_file)
         connector_config = dict([line.strip().split('=', 1) for line in connector_props.split('\n') if line.strip() and not line.strip().startswith('#')])
         self.cc.create_connector(connector_config)
-            
+
     def _connector_status(self, connector, node=None):
         try:
             return self.cc.get_connector_status(connector, node)
@@ -171,7 +172,7 @@ class ConnectDistributedTest(Test):
                    err_msg="Failed to see connector transition to the FAILED state")
 
         self.cc.restart_connector(self.sink.name)
-        
+
         wait_until(lambda: self.connector_is_running(self.sink), timeout_sec=10,
                    err_msg="Failed to see connector transition to the RUNNING state")
 
@@ -188,7 +189,7 @@ class ConnectDistributedTest(Test):
             connector = MockSink(self.cc, self.topics.keys(), mode='task-failure', delay_sec=5)
         else:
             connector = MockSource(self.cc, mode='task-failure', delay_sec=5)
-            
+
         connector.start()
 
         task_id = 0
@@ -196,7 +197,7 @@ class ConnectDistributedTest(Test):
                    err_msg="Failed to see task transition to the FAILED state")
 
         self.cc.restart_task(connector.name, task_id)
-        
+
         wait_until(lambda: self.task_is_running(connector, task_id), timeout_sec=10,
                    err_msg="Failed to see task transition to the RUNNING state")
 
@@ -218,7 +219,7 @@ class ConnectDistributedTest(Test):
 
         wait_until(lambda: self.is_running(self.source), timeout_sec=30,
                    err_msg="Failed to see connector transition to the RUNNING state")
-        
+
         self.cc.pause_connector(self.source.name)
 
         # wait until all nodes report the paused transition
@@ -266,7 +267,7 @@ class ConnectDistributedTest(Test):
 
         wait_until(lambda: self.is_running(self.sink), timeout_sec=30,
                    err_msg="Failed to see connector transition to the RUNNING state")
-        
+
         self.cc.pause_connector(self.sink.name)
 
         # wait until all nodes report the paused transition
@@ -306,7 +307,7 @@ class ConnectDistributedTest(Test):
 
         wait_until(lambda: self.is_running(self.source), timeout_sec=30,
                    err_msg="Failed to see connector transition to the RUNNING state")
-        
+
         self.cc.pause_connector(self.source.name)
 
         self.cc.restart()
@@ -333,7 +334,7 @@ class ConnectDistributedTest(Test):
         self.logger.info("Creating connectors")
         self._start_connector("connect-file-source.properties")
         self._start_connector("connect-file-sink.properties")
-        
+
         # Generating data on the source node should generate new records and create new output on the sink node. Timeouts
         # here need to be more generous than they are for standalone mode because a) it takes longer to write configs,
         # do rebalancing of the group, etc, and b) without explicit leave group support, rebalancing takes awhile
@@ -382,8 +383,8 @@ class ConnectDistributedTest(Test):
                 # Give additional time for the consumer groups to recover. Even if it is not a hard bounce, there are
                 # some cases where a restart can cause a rebalance to take the full length of the session timeout
                 # (e.g. if the client shuts down before it has received the memberId from its initial JoinGroup).
-                # If we don't give enough time for the group to stabilize, the next bounce may cause consumers to 
-                # be shut down before they have any time to process data and we can end up with zero data making it 
+                # If we don't give enough time for the group to stabilize, the next bounce may cause consumers to
+                # be shut down before they have any time to process data and we can end up with zero data making it
                 # through the test.
                 time.sleep(15)
 
@@ -517,40 +518,32 @@ class ConnectDistributedTest(Test):
             assert obj['payload'][ts_fieldname] == ts
 
     @cluster(num_nodes=5)
-    @parametrize(broker_version=str(DEV_BRANCH), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='sessioned')
-    @parametrize(broker_version=str(LATEST_0_11_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='sessioned')
-    @parametrize(broker_version=str(LATEST_0_10_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='sessioned')
-    @parametrize(broker_version=str(LATEST_0_10_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='sessioned')
-    @parametrize(broker_version=str(LATEST_0_10_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='sessioned')
-    @parametrize(broker_version=str(DEV_BRANCH), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_2_3), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_2_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_2_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_2_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_1_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_1_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_0_11_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_0_10_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_0_10_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(LATEST_0_10_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='compatible')
-    @parametrize(broker_version=str(DEV_BRANCH), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_2_3), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_2_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_2_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_2_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_1_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_1_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_0_11_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_0_10_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_0_10_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    @parametrize(broker_version=str(LATEST_0_10_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT, connect_protocol='eager')
-    def test_broker_compatibility(self, broker_version, auto_create_topics, security_protocol, connect_protocol):
+    @parametrize(broker_version=str(DEV_BRANCH), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    # commented out fix will be from KAFKA-7489
+    # @parametrize(broker_version=str(CDK_2_0_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    # @parametrize(broker_version=str(CDK_2_0_1), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    # @parametrize(broker_version=str(CDK_2_0_2), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_2_1_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_2_1_1), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_2_1_2), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_2_2_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_3_0_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDK_3_1_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(CDH_6_0_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(LATEST_0_11_0), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(LATEST_0_10_2), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(LATEST_0_10_1), auto_create_topics=False, security_protocol=SecurityConfig.PLAINTEXT)
+    @parametrize(broker_version=str(LATEST_0_10_0), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    # commented out fix will be from KAFKA-7489
+    # @parametrize(broker_version=str(LATEST_0_9), auto_create_topics=True, security_protocol=SecurityConfig.PLAINTEXT)
+    def test_broker_compatibility(self, broker_version, auto_create_topics, security_protocol):
         """
-        Verify that Connect will start up with various broker versions with various configurations. 
-        When Connect distributed starts up, it either creates internal topics (v0.10.1.0 and after) 
+        Verify that Connect will start up with various broker versions with various configurations.
+        When Connect distributed starts up, it either creates internal topics (v0.10.1.0 and after)
         or relies upon the broker to auto-create the topics (v0.10.0.x and before).
         """
         self.CONNECT_PROTOCOL = connect_protocol
+
         self.setup_services(broker_version=KafkaVersion(broker_version), auto_create_topics=auto_create_topics, security_protocol=security_protocol)
         self.cc.set_configs(lambda node: self.render("connect-distributed.properties", node=node))
 

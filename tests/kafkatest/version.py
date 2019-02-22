@@ -16,6 +16,7 @@
 
 from distutils.version import LooseVersion
 from kafkatest.utils import kafkatest_version
+from types import StringType
 
 
 class KafkaVersion(LooseVersion):
@@ -31,6 +32,7 @@ class KafkaVersion(LooseVersion):
     """
     def __init__(self, version_string):
         self.is_dev = (version_string.lower() == "dev")
+        self.is_cloudera = "kafka" in version_string or "cdh" in version_string or self.is_dev
         if self.is_dev:
             version_string = kafkatest_version()
 
@@ -52,6 +54,30 @@ class KafkaVersion(LooseVersion):
     def supports_named_listeners(self):
         return self >= V_0_10_2_0
 
+    def __cmp__(self, other):
+        if isinstance(other, StringType):
+            other = KafkaVersion(other)
+
+        if not self.is_cloudera or not other.is_cloudera:
+            if self.is_cloudera:
+                return LooseVersion.__cmp__(get_upstream_kafka_version(self), other)
+            elif other.is_cloudera:
+                return LooseVersion.__cmp__(self, get_upstream_kafka_version(other))
+
+        return LooseVersion.__cmp__(self, other)
+
+def get_upstream_kafka_version_str(version):
+    if isinstance(version, basestring):
+        version = KafkaVersion(version)
+    if version.is_cloudera:
+        return get_upstream_kafka_version(version).vstring
+    return version.vstring
+
+def get_upstream_kafka_version(version):
+    upstream_version_base = "{}.0"
+    if version.vstring[0] != "0":
+        upstream_version_base = "{}"
+    return KafkaVersion(upstream_version_base.format(version.vstring[0:version.vstring.find("-")]))
 
 def get_version(node=None):
     """Return the version attached to the given node.
@@ -62,8 +88,31 @@ def get_version(node=None):
     else:
         return DEV_BRANCH
 
+CDK_2_0_0 = KafkaVersion("0.9.0-kafka-2.0.0")
+CDK_2_0_1 = KafkaVersion("0.9.0-kafka-2.0.1")
+CDK_2_0_2 = KafkaVersion("0.9.0-kafka-2.0.2")
+LATEST_CDK_2_0 = CDK_2_0_2
+
+CDK_2_1_0 = KafkaVersion("0.10.0-kafka-2.1.0")
+CDK_2_1_1 = KafkaVersion("0.10.0-kafka-2.1.1")
+CDK_2_1_2 = KafkaVersion("0.10.0-kafka-2.1.2")
+LATEST_CDK_2_1 = CDK_2_1_2
+
+CDK_2_2_0 = KafkaVersion("0.10.2-kafka-2.2.0")
+LATEST_CDK_2_2 = CDK_2_2_0
+
+CDK_3_0_0 = KafkaVersion("0.11.0-kafka-3.0.0")
+LATEST_CDK_3_0 = CDK_3_0_0
+
+CDK_3_1_0 = KafkaVersion("1.0.1-kafka-3.1.0")
+LATEST_CDK_3_1 = CDK_3_1_0
+
+CDH_6_0_0 = KafkaVersion("1.0.1-cdh6.0.0")
+LATEST_CDH = CDH_6_0_0
+
 DEV_BRANCH = KafkaVersion("dev")
 DEV_VERSION = KafkaVersion("2.4.2-SNAPSHOT")
+DEV_VERSION = KafkaVersion("2.4.2-cdh6.x-SNAPSHOT")
 
 # 0.8.2.x versions
 V_0_8_2_1 = KafkaVersion("0.8.2.1")

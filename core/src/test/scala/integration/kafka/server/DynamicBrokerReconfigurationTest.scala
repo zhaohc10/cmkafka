@@ -950,7 +950,7 @@ class DynamicBrokerReconfigurationTest extends ZooKeeperTestHarness with SaslSet
 
     assertTrue(intercept[ExecutionException] {
       val future = producer1.send(new ProducerRecord(topic, "key", "value"))
-      future.get(2, TimeUnit.SECONDS)
+      future.get(60, TimeUnit.SECONDS)
     }.getCause.isInstanceOf[org.apache.kafka.common.errors.TimeoutException])
 
     alterAdvertisedListener(adminClient, externalAdminClient, invalidHost, "localhost")

@@ -24,6 +24,7 @@ from kafkatest.services.verifiable_producer import VerifiableProducer
 from kafkatest.services.zookeeper import ZookeeperService
 from kafkatest.utils import is_version
 from kafkatest.version import LATEST_0_8_2, LATEST_0_9, LATEST_0_10_0, LATEST_0_10_1, DEV_BRANCH, KafkaVersion
+from kafkatest.version import CDK_2_0_0, CDK_2_0_1, CDK_2_0_2, CDK_2_1_0, CDK_2_1_1, CDK_2_1_2, CDK_2_2_0, CDK_3_0_0, CDK_3_1_0, CDH_6_0_0
 
 
 class TestVerifiableProducer(Test):
@@ -46,6 +47,16 @@ class TestVerifiableProducer(Test):
         self.kafka.start()
 
     @cluster(num_nodes=3)
+    @parametrize(producer_version=str(CDK_2_0_0))
+    @parametrize(producer_version=str(CDK_2_0_1))
+    @parametrize(producer_version=str(CDK_2_0_2))
+    @parametrize(producer_version=str(CDK_2_1_0))
+    @parametrize(producer_version=str(CDK_2_1_1))
+    @parametrize(producer_version=str(CDK_2_1_2))
+    @parametrize(producer_version=str(CDK_2_2_0))
+    @parametrize(producer_version=str(CDK_3_0_0))
+    @parametrize(producer_version=str(CDK_3_1_0))
+    @parametrize(producer_version=str(CDH_6_0_0))
     @parametrize(producer_version=str(LATEST_0_8_2))
     @parametrize(producer_version=str(LATEST_0_9))
     @parametrize(producer_version=str(LATEST_0_10_0))

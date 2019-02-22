@@ -31,7 +31,7 @@ from kafkatest.services.monitor.jmx import JmxMixin
 from kafkatest.services.security.minikdc import MiniKdc
 from kafkatest.services.security.listener_security_config import ListenerSecurityConfig
 from kafkatest.services.security.security_config import SecurityConfig
-from kafkatest.version import DEV_BRANCH, LATEST_0_10_0
+from kafkatest.version import DEV_BRANCH, LATEST_0_10_0, KafkaVersion
 
 
 class KafkaListener:
@@ -138,6 +138,7 @@ class KafkaService(KafkaPathResolverMixin, JmxMixin, Service):
         self.log_level = "DEBUG"
         self.zk_chroot = zk_chroot
         self.listener_security_config = listener_security_config
+        self.version = version
 
         #
         # In a heavily loaded and not very fast machine, it is
@@ -365,7 +366,7 @@ class KafkaService(KafkaPathResolverMixin, JmxMixin, Service):
     def pids(self, node):
         """Return process ids associated with running processes on the given node."""
         try:
-            cmd = "jcmd | grep -e %s | awk '{print $1}'" % self.java_class_name()
+            cmd = "jcmd | grep -e %s | awk '{print $1}'" % self.java_class_name(node.version)
             pid_arr = [pid for pid in node.account.ssh_capture(cmd, allow_fail=True, callback=int)]
             return pid_arr
         except (RemoteCommandError, ValueError) as e:
@@ -404,7 +405,7 @@ class KafkaService(KafkaPathResolverMixin, JmxMixin, Service):
     def clean_node(self, node):
         JmxMixin.clean_node(self, node)
         self.security_config.clean_node(node)
-        node.account.kill_java_processes(self.java_class_name(),
+        node.account.kill_java_processes(self.java_class_name(node.version),
                                          clean_shutdown=False, allow_fail=True)
         node.account.ssh("sudo rm -rf -- %s" % KafkaService.PERSISTENT_ROOT, allow_fail=False)
 
@@ -827,5 +828,13 @@ class KafkaService(KafkaPathResolverMixin, JmxMixin, Service):
         self.logger.debug(output)
         return output
 
-    def java_class_name(self):
-        return "kafka.Kafka"
+    def java_class_name(self, node_version=None):
+        version = self.version
+        if node_version is not None:
+            version = node_version
+        if isinstance(version, basestring):
+            version = KafkaVersion(version)
+        if version.is_cloudera:
+            return "com.cloudera.kafka.wrap.Kafka"
+        else:
+            return "kafka.Kafka"

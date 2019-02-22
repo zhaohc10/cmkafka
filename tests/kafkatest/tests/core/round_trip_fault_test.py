@@ -75,8 +75,8 @@ class RoundTripFaultTest(Test):
     def test_produce_consume_with_broker_pause(self):
         workload1 = self.trogdor.create_task("workload1", self.round_trip_spec)
         time.sleep(2)
-        stop1_spec = ProcessStopFaultSpec(0, TaskSpec.MAX_DURATION_MS, [self.kafka.nodes[0]],
-                                           self.kafka.java_class_name())
+        node = self.kafka.nodes[0]
+        stop1_spec = ProcessStopFaultSpec(0, TaskSpec.MAX_DURATION_MS, [node], self.kafka.java_class_name(node.version))
         stop1 = self.trogdor.create_task("stop1", stop1_spec)
         workload1.wait_for_done(timeout_sec=600)
         stop1.stop()

@@ -17,16 +17,36 @@
 
 package kafka.tools
 
+import java.util.Properties
+
 import kafka.consumer.BaseConsumerRecord
+import kafka.tools.MirrorMaker.MirrorMakerProducer
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.config.SslConfigs
 import org.apache.kafka.common.record.{RecordBatch, TimestampType}
-import scala.collection.JavaConverters._
+import org.apache.kafka.common.serialization.ByteArraySerializer
 import org.junit.Assert._
 import org.junit.Test
+
+import scala.collection.JavaConverters._
+import scala.sys.process.Process
 
 class MirrorMakerTest {
 
   @Test
-  def testDefaultMirrorMakerMessageHandler(): Unit = {
+  def testProducerSslPasswordGenerated(): Unit = {
+    val producerProps = new Properties
+    producerProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9093")
+    producerProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[ByteArraySerializer])
+    producerProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, classOf[ByteArraySerializer])
+    producerProps.put(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG + ".generator", "printf cloudera")
+    val producer = new MirrorMakerProducer(true, producerProps)
+
+    assertEquals("cloudera", producer.producerProps.getProperty(SslConfigs.SSL_KEYSTORE_PASSWORD_CONFIG))
+  }
+
+  @Test
+  def testDefaultMirrorMakerMessageHandler() {
     val now = 12345L
     val consumerRecord = BaseConsumerRecord("topic", 0, 1L, now, TimestampType.CREATE_TIME, "key".getBytes, "value".getBytes)
 

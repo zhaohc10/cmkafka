@@ -17,6 +17,8 @@
  * under the License.
  */
 
+apply from: "$rootDir/gradle/cdh-pom.gradle"
+
 ext {
   versions = [:]
   libs = [:]
@@ -71,11 +73,18 @@ versions += [
   grgit: "3.1.1",
   httpclient: "4.5.9",
   easymock: "4.0.2",
+//<<<<<<< HEAD
   jackson: "2.10.0",
   jacoco: "0.8.3",
   jetty: "9.4.20.v20190813",
   jersey: "2.28",
   jmh: "1.21",
+//=======
+//  jackson: cdhJackson2Version,
+//  jetty: cdhJetty9Version,
+//  jersey: "2.27",
+//  jmh: cdhJmhVersion,
+//>>>>>>> 4efc115e7... [CLOUDERA-BUILD] Build, test changes and CM integration
   hamcrest: "2.1",
   log4j: "1.2.17",
   scalaLogging: "3.9.2",
@@ -101,6 +110,7 @@ versions += [
   owaspDepCheckPlugin: "5.2.1",
   powermock: "2.0.2",
   reflections: "0.9.11",
+//--------------------------
   rocksDB: "5.18.3",
   scalaCollectionCompat: "2.1.2",
   scalafmt: "1.5.1",
@@ -116,6 +126,16 @@ versions += [
   spotlessPlugin: "3.23.1",
   zookeeper: "3.5.7",
   zstd: "1.4.3-1"
+//--------------------------
+//  rocksDB: "5.15.10",
+//  scalatest: "3.0.5",
+//  scoverage: "1.3.1",
+//  slf4j: cdhSlf4jVersion,
+//  snappy: "1.1.7.2",
+//  zkclient: "0.11",
+//  zookeeper: cdhZookeeperVersion,
+//  zstd: "1.3.8-1"
+//--------------------------
 ]
 
 libs += [
@@ -133,6 +153,7 @@ libs += [
   bcpkix: "org.bouncycastle:bcpkix-jdk15on:$versions.bcpkix",
   commonsCli: "commons-cli:commons-cli:$versions.commonsCli",
   easymock: "org.easymock:easymock:$versions.easymock",
+  httpclient: "org.apache.httpcomponents:httpclient:$versions.httpclient",
   jacksonDatabind: "com.fasterxml.jackson.core:jackson-databind:$versions.jackson",
   jacksonDataformatCsv: "com.fasterxml.jackson.dataformat:jackson-dataformat-csv:$versions.jackson",
   jacksonModuleScala: "com.fasterxml.jackson.module:jackson-module-scala_$versions.baseScala:$versions.jackson",
@@ -185,6 +206,5 @@ libs += [
   zookeeper: "org.apache.zookeeper:zookeeper:$versions.zookeeper",
   jfreechart: "jfreechart:jfreechart:$versions.jfreechart",
   mavenArtifact: "org.apache.maven:maven-artifact:$versions.mavenArtifact",
-  zstd: "com.github.luben:zstd-jni:$versions.zstd",
-  httpclient: "org.apache.httpcomponents:httpclient:$versions.httpclient"
+  zstd: "com.github.luben:zstd-jni:$versions.zstd"
 ]

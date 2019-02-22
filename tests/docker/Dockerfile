@@ -42,6 +42,60 @@ COPY ./ssh-config /root/.ssh/config
 RUN ssh-keygen -m PEM -q -t rsa -N '' -f /root/.ssh/id_rsa && cp -f /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
 RUN echo 'PermitUserEnvironment yes' >> /etc/ssh/sshd_config
 
+# Install Cloudera specific binary test dependencies
+# following a pattern when naming directories and versions from the jar names in parcel:
+# kafka_2.11-0.10.0-kafka-2.1.0.jar -> directory: kafka-0.10.0-kafka-2.1.0, version: 0.10.0-kafka-2.1.0
+# kafka_2.11-1.0.1-cdh6.0.0.jar -> directory: kafka-1.0.1-cdh6.0.0, version: 1.0.1-cdh6.0.0
+ENV CLOUDERA_REPO="https://archive.cloudera.com/"
+ENV CLOUDERA_KAFKA_REPO="${CLOUDERA_REPO}kafka/parcels/"
+RUN mkdir -p "/opt/cloudera/kafka-0.9.0-kafka-2.0.0" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.0.0/KAFKA-2.0.0-1.kafka2.0.0.p0.12-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.9.0-kafka-2.0.0" && \
+  ln -s "/opt/cloudera/kafka-0.9.0-kafka-2.0.0/lib/kafka/" "/opt/kafka-0.9.0-kafka-2.0.0"
+RUN mkdir -p "/opt/cloudera/kafka-0.9.0-kafka-2.0.1" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.0.1/KAFKA-2.0.1-1.2.0.1.p0.5-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.9.0-kafka-2.0.1" && \
+  ln -s "/opt/cloudera/kafka-0.9.0-kafka-2.0.1/lib/kafka/" "/opt/kafka-0.9.0-kafka-2.0.1"
+RUN mkdir -p "/opt/cloudera/kafka-0.9.0-kafka-2.0.2" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.0.2/KAFKA-2.0.2-1.2.0.2.p0.5-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.9.0-kafka-2.0.2" && \
+  ln -s "/opt/cloudera/kafka-0.9.0-kafka-2.0.2/lib/kafka/" "/opt/kafka-0.9.0-kafka-2.0.2"
+RUN mkdir -p "/opt/cloudera/kafka-0.10.0-kafka-2.1.0" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.1.0/KAFKA-2.1.0-1.2.1.0.p0.115-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.10.0-kafka-2.1.0" && \
+  ln -s "/opt/cloudera/kafka-0.10.0-kafka-2.1.0/lib/kafka/" "/opt/kafka-0.10.0-kafka-2.1.0"
+RUN mkdir -p "/opt/cloudera/kafka-0.10.0-kafka-2.1.1" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.1.1/KAFKA-2.1.1-1.2.1.1.p0.18-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.10.0-kafka-2.1.1" && \
+  ln -s "/opt/cloudera/kafka-0.10.0-kafka-2.1.1/lib/kafka/" "/opt/kafka-0.10.0-kafka-2.1.1"
+RUN mkdir -p "/opt/cloudera/kafka-0.10.0-kafka-2.1.2" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.1.2/KAFKA-2.1.2-1.2.1.2.p0.6-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.10.0-kafka-2.1.2" && \
+  ln -s "/opt/cloudera/kafka-0.10.0-kafka-2.1.2/lib/kafka/" "/opt/kafka-0.10.0-kafka-2.1.2"
+RUN mkdir -p "/opt/cloudera/kafka-0.10.2-kafka-2.2.0" && \
+  curl -s "${CLOUDERA_KAFKA_REPO}2.2.0/KAFKA-2.2.0-1.2.2.0.p0.68-wheezy.parcel" \
+    | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.10.2-kafka-2.2.0" && \
+  ln -s "/opt/cloudera/kafka-0.10.2-kafka-2.2.0/lib/kafka/" "/opt/kafka-0.10.2-kafka-2.2.0"
+RUN mkdir -p "/opt/cloudera/kafka-0.11.0-kafka-3.0.0" && \
+    curl -s "${CLOUDERA_KAFKA_REPO}3.0.0/KAFKA-3.0.0-1.3.0.0.p0.40-jessie.parcel" \
+        | tar xz --strip-components=1 -C "/opt/cloudera/kafka-0.11.0-kafka-3.0.0" && \
+    ln -s "/opt/cloudera/kafka-0.11.0-kafka-3.0.0/lib/kafka/" "/opt/kafka-0.11.0-kafka-3.0.0"
+RUN mkdir -p "/opt/cloudera/kafka-1.0.1-kafka-3.1.0" && \
+    curl -s "${CLOUDERA_KAFKA_REPO}3.1.0/KAFKA-3.1.0-1.3.1.0.p0.35-jessie.parcel" \
+        | tar xz --strip-components=1 -C "/opt/cloudera/kafka-1.0.1-kafka-3.1.0" && \
+    ln -s "/opt/cloudera/kafka-1.0.1-kafka-3.1.0/lib/kafka/" "/opt/kafka-1.0.1-kafka-3.1.0"
+# cdh kafka
+ENV CLOUDERA_CDH6_REPO="${CLOUDERA_REPO}cdh6/"
+RUN mkdir -p "/opt/cloudera/kafka-1.0.1-cdh6.0.0" && \
+    curl -s "${CLOUDERA_CDH6_REPO}6.0.0/parcels/CDH-6.0.0-1.cdh6.0.0.p0.537114-xenial.parcel" \
+        | bsdtar xzf - --strip-components=1 -C "/opt/cloudera/kafka-1.0.1-cdh6.0.0" && \
+    ln -s "/opt/cloudera/kafka-1.0.1-cdh6.0.0/lib/kafka/" "/opt/kafka-1.0.1-cdh6.0.0"
+
+# some downstream version contains a line, which ruins some checks:
+# echo "Final CLASSPATH is $CLASSPATH"
+RUN sed -i.bak 's/echo "Final CLASSPATH is \$CLASSPATH"//g' "/opt/kafka-1.0.1-cdh6.0.0/bin/kafka-run-class.sh"
+RUN sed -i.bak 's/echo "Final CLASSPATH is \$CLASSPATH"//g' "/opt/kafka-1.0.1-kafka-3.1.0/bin/kafka-run-class.sh"
+
 # Install binary test dependencies.
 # we use the same versions as in vagrant/base.sh
 ARG KAFKA_MIRROR="https://s3-us-west-2.amazonaws.com/kafka-packages"

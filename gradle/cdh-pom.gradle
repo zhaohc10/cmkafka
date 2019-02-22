@@ -1,0 +1,62 @@
+// Downloads the parent kafka cdh pom
+// Used to set common dependency versions to match the versions in the pom
+configurations {
+  cdhPom
+}
+
+repositories {
+  mavenLocal()
+  maven { url repositoryUrl }
+  maven { url mavenArtifactoryUrl }
+  mavenCentral()
+  jcenter()
+}
+
+
+dependencies {
+  cdhPom "com.cloudera.cdh:cdh-root:${cdhversion}@pom"
+}
+
+// Resolve the pom from the dependencies/repository
+configurations.cdhPom.resolve().each { file ->
+  logger.info("Resolving CDH pom file")
+  if (file.name.startsWith("cdh-root") && file.name.endsWith(".pom")) {
+    logger.info("Pom file: $file.name")
+
+    // Parse the pom file
+    def parser = new XmlSlurper(false, false).parse(file)
+
+    // Read the required version properties and adjust the version originally set in dependencies.gradle
+    ext.cdhZookeeperVersion = parser.properties."cdh.zookeeper.version"
+    logger.info("Setting zookeeper version to $cdhZookeeperVersion")
+
+    ext.cdhSlf4jVersion = parser.properties."cdh.slf4j.version"
+    logger.info("Setting slf4j version to $cdhSlf4jVersion")
+
+    ext.cdhJetty9Version = parser.properties."cdh.jetty9.version"
+    logger.info("Setting jetty9 version to $cdhJetty9Version")
+
+    ext.cdhJackson2Version = parser.properties."cdh.jackson2.version"
+    logger.info("Setting jackson2 version to $cdhJackson2Version")
+
+    ext.cdhJmhVersion = parser.properties."cdh.jmh.version"
+    logger.info("Setting jmh version to $cdhJmhVersion")
+
+    // Only set if its not already to support CLI overrides
+    if (!project.hasProperty('scalaVersion')) {
+      scalaVersion = parser.properties."cdh.scala.version".toString()
+      logger.info("Setting scala version to $scalaVersion")
+    }
+  }
+}
+
+// restoring unavailable versions - using whatever upstream uses
+if (ext.cdhJetty9Version.isEmpty()) {
+  ext.cdhJetty9Version = "9.4.12.v20180830"// Jetty is not available in CDH 5.14.0
+}
+if (ext.cdhJackson2Version.isEmpty()) {
+  ext.cdhJackson2Version = "2.9.7"// Jackson in CDH 5.x is older than required for this version of Kafka
+}
+if (ext.cdhJmhVersion.isEmpty()) {
+  ext.cdhJmhVersion = "1.21"// jmh is not available in CDH 5.14.0
+}
