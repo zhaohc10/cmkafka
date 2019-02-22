@@ -1,5 +1,4 @@
 #!/usr/bin/env sh
-
 #
 # Copyright 2015 the original author or authors.
 #
@@ -44,7 +43,8 @@ APP_NAME="Gradle"
 APP_BASE_NAME=`basename "$0"`
 
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
-DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
+
+DEFAULT_JVM_OPTS=""
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD="maximum"
@@ -81,17 +81,17 @@ case "`uname`" in
 esac
 
 
-# Loop in case we encounter an error.
-for attempt in 1 2 3; do
-  if [ ! -e $APP_HOME/gradle/wrapper/gradle-wrapper.jar ]; then
-    if ! curl -s -S --retry 3 -L -o "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v5.6.2/gradle/wrapper/gradle-wrapper.jar"; then
-      rm -f "$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
-      # Pause for a bit before looping in case the server throttled us.
-      sleep 5
-      continue
-    fi
-  fi
-done
+## Loop in case we encounter an error.
+#for attempt in 1 2 3; do
+#  if [ ! -e $APP_HOME/gradle/wrapper/gradle-wrapper.jar ]; then
+#    if ! curl -s -S --retry 3 -L -o "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" "https://raw.githubusercontent.com/gradle/gradle/v5.6.2/gradle/wrapper/gradle-wrapper.jar"; then
+#      rm -f "$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+#      # Pause for a bit before looping in case the server throttled us.
+#      sleep 5
+#      continue
+#    fi
+#  fi
+#done
 
 CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
@@ -138,8 +138,8 @@ if $darwin; then
     GRADLE_OPTS="$GRADLE_OPTS \"-Xdock:name=$APP_NAME\" \"-Xdock:icon=$APP_HOME/media/gradle.icns\""
 fi
 
-# For Cygwin or MSYS, switch paths to Windows format before running java
-if [ "$cygwin" = "true" -o "$msys" = "true" ] ; then
+# For Cygwin, switch paths to Windows format before running java
+if $cygwin ; then
     APP_HOME=`cygpath --path --mixed "$APP_HOME"`
     CLASSPATH=`cygpath --path --mixed "$CLASSPATH"`
     JAVACMD=`cygpath --unix "$JAVACMD"`

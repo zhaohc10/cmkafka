@@ -35,6 +35,19 @@ def _kafka_jar_versions(proc_string):
         - kafka-streams-0.11.0.0-SNAPSHOT.jar
     """
 
+    # handling downstream versions
+
+    # kafka_2.11-0.10.0-kafka-2.1.0.jar
+    # kafka_2.11-1.0.1-cdh6.0.0.jar
+    versions = re.findall(r"kafka_\d+\.\d+-(\d+\.\d+\.\d+-kafka-\d+\.\d+.\d+)", proc_string)
+    versions.extend(re.findall(r"kafka_\d+\.\d+-(\d+\.\d+\.\d+-cdh\d+\.\d+\.\d+)", proc_string))
+
+    # /opt/kafka-0.9.0-kafka-2.0.0/bin/../libs/*
+    versions.extend(re.findall(r"/kafka-(\d+\.\d+\.\d+-kafka-\d+\.\d+.\d+)", proc_string))
+    versions.extend(re.findall(r"/kafka-(\d+\.\d+\.\d+-cdh\d+\.\d+\.\d+)", proc_string))
+    if versions:
+        return set(versions)
+
     # Pattern example: kafka_2.11-1.0.0-SNAPSHOT.jar (we have to be careful not to partially match the 4 segment version string)
     versions = re.findall("kafka_[0-9]+\.[0-9]+-([0-9]+\.[0-9]+\.[0-9]+)[\.-][a-zA-z]", proc_string)
 

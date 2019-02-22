@@ -23,7 +23,9 @@ from kafkatest.services.verifiable_producer import VerifiableProducer
 from kafkatest.services.zookeeper import ZookeeperService
 from kafkatest.tests.produce_consume_validate import ProduceConsumeValidateTest
 from kafkatest.utils import is_int
-from kafkatest.version import LATEST_0_8_2, LATEST_0_9, LATEST_0_10, LATEST_0_10_0, LATEST_0_10_1, LATEST_0_10_2, LATEST_0_11_0, LATEST_1_0, LATEST_1_1, LATEST_2_0, LATEST_2_1, LATEST_2_2, LATEST_2_3, LATEST_2_4, V_0_9_0_0, V_0_11_0_0, DEV_BRANCH, KafkaVersion
+
+from kafkatest.version import LATEST_0_8_2, LATEST_0_9, LATEST_0_10, LATEST_0_10_0, LATEST_0_10_1, LATEST_0_10_2, LATEST_0_11_0, LATEST_1_0, LATEST_1_1, V_0_9_0_0, DEV_BRANCH, KafkaVersion
+from kafkatest.version import CDK_2_0_0, CDK_2_0_1, CDK_2_0_2, CDK_2_1_0, CDK_2_1_1, CDK_2_1_2, CDK_2_2_0, CDK_3_0_0, CDK_3_1_0, CDH_6_0_0, get_upstream_kafka_version_str
 
 class TestUpgrade(ProduceConsumeValidateTest):
 
@@ -52,8 +54,8 @@ class TestUpgrade(ProduceConsumeValidateTest):
         for node in self.kafka.nodes:
             self.kafka.stop_node(node)
             node.version = DEV_BRANCH
-            node.config[config_property.INTER_BROKER_PROTOCOL_VERSION] = from_kafka_version
-            node.config[config_property.MESSAGE_FORMAT_VERSION] = from_kafka_version
+            node.config[config_property.INTER_BROKER_PROTOCOL_VERSION] = get_upstream_kafka_version_str(from_kafka_version)
+            node.config[config_property.MESSAGE_FORMAT_VERSION] = get_upstream_kafka_version_str(from_kafka_version)
             self.kafka.start_node(node)
             self.wait_until_rejoin()
 
@@ -82,24 +84,55 @@ class TestUpgrade(ProduceConsumeValidateTest):
     @parametrize(from_kafka_version=str(LATEST_1_1), to_message_format_version=None, compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_1_1), to_message_format_version=None, compression_types=["lz4"])
     @parametrize(from_kafka_version=str(LATEST_1_0), to_message_format_version=None, compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_3_1_0), to_message_format_version=None, compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDH_6_0_0), to_message_format_version=None, compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_1_0), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_3_1_0), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDH_6_0_0), to_message_format_version=None, compression_types=["snappy"])
     @parametrize(from_kafka_version=str(LATEST_0_11_0), to_message_format_version=None, compression_types=["gzip"])
+    @parametrize(from_kafka_version=str(CDK_3_0_0), to_message_format_version=None, compression_types=["gzip"])
     @parametrize(from_kafka_version=str(LATEST_0_11_0), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_3_0_0), to_message_format_version=None, compression_types=["lz4"])
     @parametrize(from_kafka_version=str(LATEST_0_10_2), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_2_2_0), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_0_10_2), to_message_format_version=str(LATEST_0_10), compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_2_0), to_message_format_version=str(LATEST_0_10), compression_types=["snappy"])
     @parametrize(from_kafka_version=str(LATEST_0_10_2), to_message_format_version=None, compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_2_2_0), to_message_format_version=None, compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_0_10_2), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_2_0), to_message_format_version=None, compression_types=["lz4"])
     @parametrize(from_kafka_version=str(LATEST_0_10_1), to_message_format_version=None, compression_types=["lz4"])
     @parametrize(from_kafka_version=str(LATEST_0_10_1), to_message_format_version=None, compression_types=["snappy"])
     @parametrize(from_kafka_version=str(LATEST_0_10_0), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_1_0), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_1_1), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_1_2), to_message_format_version=None, compression_types=["snappy"])
     @parametrize(from_kafka_version=str(LATEST_0_10_0), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_1_0), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_1_1), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_1_2), to_message_format_version=None, compression_types=["lz4"])
     @cluster(num_nodes=7)
     @parametrize(from_kafka_version=str(LATEST_0_9), to_message_format_version=None, compression_types=["none"], security_protocol="SASL_SSL")
+    @parametrize(from_kafka_version=str(CDK_2_0_0), to_message_format_version=None, compression_types=["none"], security_protocol="SASL_SSL")
+    @parametrize(from_kafka_version=str(CDK_2_0_1), to_message_format_version=None, compression_types=["none"], security_protocol="SASL_SSL")
+    @parametrize(from_kafka_version=str(CDK_2_0_2), to_message_format_version=None, compression_types=["none"], security_protocol="SASL_SSL")
     @cluster(num_nodes=6)
     @parametrize(from_kafka_version=str(LATEST_0_9), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_0_0), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_0_1), to_message_format_version=None, compression_types=["snappy"])
+    @parametrize(from_kafka_version=str(CDK_2_0_2), to_message_format_version=None, compression_types=["snappy"])
     @parametrize(from_kafka_version=str(LATEST_0_9), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_0), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_1), to_message_format_version=None, compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_2), to_message_format_version=None, compression_types=["lz4"])
     @parametrize(from_kafka_version=str(LATEST_0_9), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_2_0_0), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_2_0_1), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
+    @parametrize(from_kafka_version=str(CDK_2_0_2), to_message_format_version=str(LATEST_0_9), compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_0_9), to_message_format_version=str(LATEST_0_9), compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_0), to_message_format_version=str(LATEST_0_9), compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_1), to_message_format_version=str(LATEST_0_9), compression_types=["lz4"])
+    @parametrize(from_kafka_version=str(CDK_2_0_2), to_message_format_version=str(LATEST_0_9), compression_types=["lz4"])
     @cluster(num_nodes=7)
     @parametrize(from_kafka_version=str(LATEST_0_8_2), to_message_format_version=None, compression_types=["none"])
     @parametrize(from_kafka_version=str(LATEST_0_8_2), to_message_format_version=None, compression_types=["snappy"])

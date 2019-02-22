@@ -15,10 +15,23 @@
 
 import org.ajoberstar.grgit.Grgit
 
-import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 
 buildscript {
+  ext {
+    mavenUrl = project.hasProperty('mavenUrl') ? project.mavenUrl : ''
+    // Derive the repository to use based on the version and passed properties
+    repositoryUrl = !version.endsWith("SNAPSHOT") ? project.mavenUrl : project.mavenSnapshotUrl
+    // Note: We manually expand ${user.home}, if it exists, because gradle doesn't support variable expansion in property files
+    repositoryUrl = repositoryUrl.replaceFirst('\\\$\\{user.home}', "${System.getProperty("user.home")}")
+  }
+
   repositories {
+    mavenLocal()
+    maven { url repositoryUrl }
+    maven { url mavenArtifactoryUrl }
     mavenCentral()
     jcenter()
     maven {
@@ -52,7 +65,11 @@ spotless {
 allprojects {
 
   repositories {
+    mavenLocal()
+    maven { url repositoryUrl }
+    maven { url mavenArtifactoryUrl }
     mavenCentral()
+    jcenter()
   }
 
   apply plugin: 'idea'
@@ -100,7 +117,6 @@ ext {
   skipSigning = project.hasProperty('skipSigning') && skipSigning.toBoolean()
   shouldSign = !skipSigning && !version.endsWith("SNAPSHOT") && project.gradle.startParameter.taskNames.any { it.contains("upload") }
 
-  mavenUrl = project.hasProperty('mavenUrl') ? project.mavenUrl : ''
   mavenUsername = project.hasProperty('mavenUsername') ? project.mavenUsername : ''
   mavenPassword = project.hasProperty('mavenPassword') ? project.mavenPassword : ''
 
@@ -114,6 +130,17 @@ ext {
 }
 
 apply from: file('wrapper.gradle')
+
+def shouldFilterFlakyTests = gradle.startParameter.taskNames.any{it.contains("FlakyRetry")}
+if (shouldFilterFlakyTests) {
+  println('''************************************************************************
+  a FlakyRetry task was included in task list ->
+  Failing tests will not cause a build failure. Test classes with failures will be run again to
+  filter out flaky tests. Failures in this second run will cause build failure.
+************************************************************************''')
+} else {
+  println("unitTestWithFlakyRetry was not included in task list, no anti-flaky steps are done, proceeding as normal upstream build")
+}
 
 if (file('.git').exists()) {
   apply from: file('gradle/rat.gradle')
@@ -138,7 +165,10 @@ if (file('.git').exists()) {
         'checkstyle/suppressions.xml',
         'streams/quickstart/java/src/test/resources/projects/basic/goal.txt',
         'streams/streams-scala/logs/*',
-        '**/generated/**'
+        '**/generated/**',
+        'docs/**',
+        'gradle/**',
+        'cloudera/**'
     ])
   }
 }
@@ -191,7 +221,7 @@ subprojects {
           // To test locally, replace mavenUrl in ~/.gradle/gradle.properties to file://localhost/tmp/myRepo/
           mavenDeployer {
               beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
-              repository(url: "${mavenUrl}") {
+              repository(url: "${repositoryUrl}") {
                   authentication(userName: "${mavenUsername}", password: "${mavenPassword}")
               }
               afterEvaluate {
@@ -277,6 +307,9 @@ subprojects {
     }
   }
 
+  def failedTestsInFirstTestRun = []
+  def testResultsDir = null
+
   test {
     maxParallelForks = userMaxForks ?: Runtime.runtime.availableProcessors()
 
@@ -288,7 +321,78 @@ subprojects {
       showStandardStreams = userShowStandardStreams ?: testShowStandardStreams
       exceptionFormat = testExceptionFormat
     }
-    logTestStdout.rehydrate(delegate, owner, this)()
+
+    afterTest { TestDescriptor desc , TestResult result ->
+      if (TestResult.ResultType.FAILURE == result.resultType) {
+        println("Found failing test $desc.parent - $desc.name, trying again in next turn of test execution")
+        failedTestsInFirstTestRun << desc
+      }
+    }
+    testResultsDir = reports.junitXml.destination
+
+    ignoreFailures = shouldFilterFlakyTests
+  }
+
+  task testWithFlakyRetry(type: Test, dependsOn: test) {
+    maxParallelForks = userMaxForks ?: Runtime.runtime.availableProcessors()
+
+    minHeapSize = "256m"
+    maxHeapSize = "2048m"
+
+    testLogging {
+      events = userTestLoggingEvents ?: testLoggingEvents
+      showStandardStreams = userShowStandardStreams ?: testShowStandardStreams
+      exceptionFormat = testExceptionFormat
+    }
+
+    def oldResultsToOverwite = []
+
+    doFirst {
+      if (!failedTestsInFirstTestRun.isEmpty()) {
+        println("Executing failed tests again to filter out flaky tests")
+        println("Failed tests: " + failedTestsInFirstTestRun)
+
+        println("Successful results will overwrite stale failed test results from $testResultsDir to avoid jenkins reporting an UNSTABLE build")
+        def failedTestClasses = failedTestsInFirstTestRun.collect{
+          it.className.replaceAll('\\.', '/') + ".*"
+        } as Set
+        // re-running complete classes to keep the integrity of the test results
+        println("Re-running $failedTestClasses")
+        setIncludes(failedTestClasses)
+      } else {
+        println("Yay, no failing tests, no need for a second run!")
+        setExcludes(["**/*"])
+      }
+    }
+
+    afterSuite { TestDescriptor desc , TestResult result ->
+      if (TestResult.ResultType.FAILURE != result.resultType) {
+        // In case of flaky tests old results should be overwritten to avoid Jenkins considering a successful build
+        // UNSTABLE due to failed tests
+        // Unfortunately at this point new result files are not ready, so we need to defer overwrites to a later time,
+        // see doLast below
+        def testClassName = desc.className
+        // Gradle seems to call afterSuite not only after suites but also when the executor finishes
+        // no need to overwrite anything in this case
+        if (testClassName != null) {
+          println("Second execution of $testClassName was successful, previous failures seem to be flaky. Marking test result to be overwritten.")
+          oldResultsToOverwite << testClassName
+        }
+      }
+    }
+
+    doLast {
+      if (oldResultsToOverwite.isEmpty()) {
+        println("No flaky tests were detected, no need to overwrite previous test results")
+      } else {
+        oldResultsToOverwite.each { testClassName ->
+          def oldReportFile = "$testResultsDir/TEST-${testClassName}.xml"
+          def newReportsFile = "$reports.junitXml.destination/TEST-${testClassName}.xml"
+          println("Overwriting old test result at $oldReportFile with $newReportsFile")
+          Files.copy(Paths.get(newReportsFile), Paths.get(oldReportFile), StandardCopyOption.REPLACE_EXISTING)
+        }
+      }
+    }
   }
 
   task integrationTest(type: Test, dependsOn: compileJava) {
@@ -310,6 +414,8 @@ subprojects {
 
   }
 
+  def failedTestsInFirstUnitRun = []
+
   task unitTest(type: Test, dependsOn: compileJava) {
     maxParallelForks = userMaxForks ?: Runtime.runtime.availableProcessors()
 
@@ -326,6 +432,44 @@ subprojects {
     if (it.project.name != 'generator') {
       useJUnit {
         excludeCategories 'org.apache.kafka.test.IntegrationTest'
+      }
+    }
+
+    afterTest { TestDescriptor desc , TestResult result ->
+      if (TestResult.ResultType.FAILURE == result.resultType) {
+        println("Found failing test $desc.parent - $desc.name, trying again in next turn of test execution")
+        failedTestsInFirstUnitRun << desc
+      }
+    }
+
+    ignoreFailures = shouldFilterFlakyTests
+  }
+
+  task unitTestWithFlakyRetry(type: Test, dependsOn: unitTest) {
+    maxParallelForks = userMaxForks ?: Runtime.runtime.availableProcessors()
+
+    minHeapSize = "256m"
+    maxHeapSize = "2048m"
+
+    testLogging {
+      events = userTestLoggingEvents ?: testLoggingEvents
+      showStandardStreams = userShowStandardStreams ?: testShowStandardStreams
+      exceptionFormat = testExceptionFormat
+    }
+
+    doFirst {
+      if (!failedTestsInFirstUnitRun.isEmpty()) {
+        println("Executing failed tests again to filter out flaky tests")
+        println("Failed tests: " + failedTestsInFirstUnitRun)
+        def failedTestClasses = failedTestsInFirstUnitRun.collect{
+          it.className.replaceAll('\\.', '/') + ".*"
+        } as Set
+        // re-running complete classes to keep the integrity of the test results
+        println("Re-running $failedTestClasses")
+        setIncludes(failedTestClasses)
+      } else {
+        println("Yay, no failing tests, no need for a second run!")
+        setExcludes(["**/*"])
       }
     }
   }
@@ -777,6 +921,10 @@ project(':core') {
     testCompile.exclude module: 'api-ldap-schema-data'
   }
 
+  configurations {
+    releaseJars { extendsFrom runtime }
+  }
+
   tasks.create(name: "copyDependantLibs", type: Copy) {
     from (configurations.testRuntime) {
       include('slf4j-log4j12*')
@@ -888,6 +1036,7 @@ project(':core') {
     from "$rootDir/LICENSE"
     from "$rootDir/NOTICE"
     from(configurations.runtime) { into("libs/") }
+    from(configurations.releaseJars) { into("libs/") }
     from(configurations.archives.artifacts.files) { into("libs/") }
     from(project.siteDocsTar) { into("site-docs/") }
     from(project(':tools').jar) { into("libs/") }

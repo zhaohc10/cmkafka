@@ -22,6 +22,7 @@ from kafkatest.services.performance import ProducerPerformanceService, ConsumerP
 from kafkatest.services.performance import latency, compute_aggregate_throughput
 from kafkatest.services.zookeeper import ZookeeperService
 from kafkatest.version import DEV_BRANCH, LATEST_0_8_2, LATEST_0_9, LATEST_1_1, KafkaVersion
+from kafkatest.version import CDK_2_0_0, CDK_2_0_1, CDK_2_0_2, CDK_2_1_0, CDK_2_1_1, CDK_2_1_2, CDK_2_2_0, CDK_3_0_0, CDK_3_1_0, CDH_6_0_0
 
 
 class PerformanceServiceTest(Test):
@@ -42,6 +43,20 @@ class PerformanceServiceTest(Test):
     @parametrize(version=str(LATEST_0_8_2), new_consumer=False)
     @parametrize(version=str(LATEST_0_9), new_consumer=False)
     @parametrize(version=str(LATEST_0_9))
+    @parametrize(version=str(CDK_2_0_0))
+    @parametrize(version=str(CDK_2_0_0), new_consumer=False)
+    @parametrize(version=str(CDK_2_0_1))
+    @parametrize(version=str(CDK_2_0_1), new_consumer=False)
+    @parametrize(version=str(CDK_2_0_2))
+    @parametrize(version=str(CDK_2_0_2), new_consumer=False)
+    @parametrize(version=str(CDK_2_1_0))
+    @parametrize(version=str(CDK_2_1_1))
+    @parametrize(version=str(CDK_2_1_2))
+    @parametrize(version=str(CDK_2_2_0))
+    @parametrize(version=str(CDK_3_0_0))
+    @parametrize(version=str(CDK_3_1_0))
+    @parametrize(version=str(CDK_3_1_0), new_consumer=False)
+    @parametrize(version=str(CDH_6_0_0))
     @parametrize(version=str(LATEST_1_1), new_consumer=False)
     @parametrize(version=str(DEV_BRANCH))
     def test_version(self, version=str(LATEST_0_9), new_consumer=True):
