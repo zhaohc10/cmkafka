@@ -179,8 +179,8 @@ class KafkaServer(val config: KafkaConfig, time: Time = Time.SYSTEM, threadNameP
 
   def clusterId: String = _clusterId
 
-  // Visible for testing
-  private[kafka] def zkClient = _zkClient
+  // Visible for TopicMetricNameResource
+  def zkClient = _zkClient
 
   private[kafka] def brokerTopicStats = _brokerTopicStats
 

@@ -19,21 +19,49 @@ package kafka.server
 
 import java.util.Properties
 
-import kafka.metrics.KafkaMetricsReporter
+import kafka.metrics.{KafkaMetricsReporter, KafkaServerMetricsReporter}
 import kafka.utils.{Exit, Logging, VerifiableProperties}
 
 import scala.collection.Seq
 
-object KafkaServerStartable {
-  def fromProps(serverProps: Properties): KafkaServerStartable = {
-    fromProps(serverProps, None)
+
+object KafkaServerStartable extends Logging {
+  def fromProps(serverProps: Properties) = {
+    val reporters = KafkaMetricsReporter.startReporters(new VerifiableProperties(serverProps))
+    val startable = new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters)
+
+    reporters.filter(_.isInstanceOf[KafkaServerMetricsReporter]).foreach(_.asInstanceOf[KafkaServerMetricsReporter].setServer(startable.server))
+
+    startable
   }
+
 
   def fromProps(serverProps: Properties, threadNamePrefix: Option[String]): KafkaServerStartable = {
     val reporters = KafkaMetricsReporter.startReporters(new VerifiableProperties(serverProps))
-    new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters, threadNamePrefix)
+    val startable = new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters, threadNamePrefix)
+    reporters.filter(_.isInstanceOf[KafkaServerMetricsReporter]).foreach(_.asInstanceOf[KafkaServerMetricsReporter].setServer(startable.server))
+
+    startable
+
   }
+
+
 }
+
+
+//object KafkaServerStartable {
+//  def fromProps(serverProps: Properties): KafkaServerStartable = {
+//    fromProps(serverProps, None)
+//  }
+//
+//  def fromProps(serverProps: Properties, threadNamePrefix: Option[String]): KafkaServerStartable = {
+//    val reporters = KafkaMetricsReporter.startReporters(new VerifiableProperties(serverProps))
+//    new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters, threadNamePrefix)
+//  }
+//}
+
+
+
 
 class KafkaServerStartable(val staticServerConfig: KafkaConfig, reporters: Seq[KafkaMetricsReporter], threadNamePrefix: Option[String] = None) extends Logging {
   private val server = new KafkaServer(staticServerConfig, kafkaMetricsReporters = reporters, threadNamePrefix = threadNamePrefix)
