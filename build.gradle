@@ -906,6 +906,28 @@ project(':core') {
     releaseJars { extendsFrom runtime }
   }
 
+  // for sentry
+  dependencies {
+    releaseJars (libs.sentryKafkaBinding) {
+      // Temporarily exclude dependencies (see CDH-40277 & SENTRY-1255)
+      exclude group: 'ant-contrib'
+      exclude group: 'com.codahale.metrics'
+      exclude group: 'com.jolbox'
+      exclude group: 'org.apache.curator'
+      exclude group: 'org.apache.derby'
+      exclude group: 'org.apache.hive'
+      exclude group: 'org.eclipse.jetty'
+      exclude group: 'com.sun.jersey'
+      exclude group: 'org.datanucleus'
+      exclude group: 'org.apache.sentry', module: 'sentry-policy-search'
+      exclude group: 'org.apache.sentry', module: 'sentry-core-model-search'
+      exclude group: 'tomcat', module: 'jasper-runtime'
+      exclude group: 'tomcat', module: 'jasper-compiler'
+    }
+    releaseJars libs.guava
+    releaseJars libs.jacksonMapperAsl
+  }
+
   tasks.create(name: "copyDependantLibs", type: Copy) {
     from (configurations.testRuntime) {
       include('slf4j-log4j12*')
