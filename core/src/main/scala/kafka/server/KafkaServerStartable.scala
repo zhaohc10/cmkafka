@@ -19,7 +19,7 @@ package kafka.server
 
 import java.util.Properties
 
-import kafka.metrics.KafkaMetricsReporter
+import kafka.metrics.{KafkaMetricsReporter, KafkaServerMetricsReporter}
 import kafka.utils.{Exit, Logging, VerifiableProperties}
 
 import scala.collection.Seq
@@ -31,7 +31,12 @@ object KafkaServerStartable {
 
   def fromProps(serverProps: Properties, threadNamePrefix: Option[String]): KafkaServerStartable = {
     val reporters = KafkaMetricsReporter.startReporters(new VerifiableProperties(serverProps))
-    new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters, threadNamePrefix)
+    val startable = new KafkaServerStartable(KafkaConfig.fromProps(serverProps, false), reporters, threadNamePrefix)
+
+    reporters.filter(_.isInstanceOf[KafkaServerMetricsReporter]).foreach(_.asInstanceOf[KafkaServerMetricsReporter].setServer(startable.server))
+
+    startable
+
   }
 }
 

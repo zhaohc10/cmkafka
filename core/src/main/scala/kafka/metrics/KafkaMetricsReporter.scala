@@ -78,3 +78,8 @@ object KafkaMetricsReporter {
   }
 }
 
+import kafka.server.KafkaServer
+
+trait KafkaServerMetricsReporter extends KafkaMetricsReporter {
+  def setServer(server: KafkaServer)
+}
