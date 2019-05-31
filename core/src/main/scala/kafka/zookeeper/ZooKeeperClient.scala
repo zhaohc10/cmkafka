@@ -19,20 +19,21 @@ package kafka.zookeeper
 
 import java.util
 import java.util.Locale
-import java.util.concurrent.locks.{ReentrantLock, ReentrantReadWriteLock}
 import java.util.concurrent._
+import java.util.concurrent.locks.{ReentrantLock, ReentrantReadWriteLock}
 
 import com.yammer.metrics.core.{Gauge, MetricName}
 import kafka.metrics.KafkaMetricsGroup
 import kafka.utils.CoreUtils.{inLock, inReadLock, inWriteLock}
 import kafka.utils.{KafkaScheduler, Logging}
+import kafka.zookeeper
 import org.apache.kafka.common.utils.Time
 import org.apache.zookeeper.AsyncCallback._
 import org.apache.zookeeper.KeeperException.Code
 import org.apache.zookeeper.Watcher.Event.{EventType, KeeperState}
 import org.apache.zookeeper.ZooKeeper.States
 import org.apache.zookeeper.data.{ACL, Stat}
-import org.apache.zookeeper._
+import org.apache.zookeeper.{KeeperException, _}
 
 import scala.collection.JavaConverters._
 import scala.collection.Seq
@@ -226,17 +227,21 @@ class ZooKeeperClient(connectString: String,
           override def processResult(rc: Int, path: String, ctx: Any, stat: Stat): Unit =
             callback(SetAclResponse(Code.get(rc), path, Option(ctx), stat, responseMetadata(sendTimeMs)))
         }, ctx.orNull)
-      case MultiRequest(zkOps, ctx) =>
-        zooKeeper.multi(zkOps.map(_.toZookeeperOp).asJava, new MultiCallback {
-          override def processResult(rc: Int, path: String, ctx: Any, opResults: util.List[OpResult]): Unit = {
-            callback(MultiResponse(Code.get(rc), path, Option(ctx),
-              if (opResults == null)
-                null
-              else
-                zkOps.zip(opResults.asScala) map { case (zkOp, result) => ZkOpResult(zkOp, result) },
-              responseMetadata(sendTimeMs)))
-          }
-        }, ctx.orNull)
+      case MultiRequest(zkOps, ctx) => {
+        def processResult(rc: Int, path: String, ctx: Option[Any], opResults: util.List[OpResult]): Unit = {
+          callback(zookeeper.MultiResponse(Code.get(rc), path, ctx,
+            if (opResults == null)
+              null
+            else
+              zkOps.zip(opResults.asScala) map { case (zkOp, result) => ZkOpResult(zkOp, result) },
+            responseMetadata(sendTimeMs)))
+        }
+        try {
+          processResult(Code.OK.intValue(), request.path, ctx, zooKeeper.multi(zkOps.map(_.toZookeeperOp).asJava))
+        } catch {
+          case e: KeeperException => processResult(e.code().intValue(), e.getPath, ctx, e.getResults)
+        }
+      }
     }
   }
 
