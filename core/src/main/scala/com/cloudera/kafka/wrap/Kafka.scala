@@ -17,6 +17,7 @@
 
 package com.cloudera.kafka.wrap
 
+import java.util
 import java.util.Properties
 
 import kafka.utils.Logging
@@ -40,7 +41,7 @@ object Kafka extends Logging {
 
   def generatePasswordsOverrides(serverProps: Properties): Array[String] = {
     val generatedProps: Properties = generateSslPasswords(serverProps)
-    generatedProps.putAll(generateDelegationTokenPassword(serverProps))
+    generatedProps.asInstanceOf[util.Hashtable[Object, Object]].putAll(generateDelegationTokenPassword(serverProps))
     val props = propertiesAsScalaMap(generatedProps)
 
     props.flatMap(k => {

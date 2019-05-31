@@ -110,7 +110,7 @@ object MirrorMaker extends Logging with KafkaMetricsGroup {
     consumerConfigProps.setProperty("value.deserializer", classOf[ByteArrayDeserializer].getName)
 
     // Generate password from executable
-    consumerConfigProps.putAll(generateSslPasswords(consumerConfigProps))
+    consumerConfigProps.asInstanceOf[util.Hashtable[Object, Object]].putAll(generateSslPasswords(consumerConfigProps))
 
     // The default client id is group id, we manually set client id to groupId-index to avoid metric collision
     val groupIdString = consumerConfigProps.getProperty("group.id")
@@ -375,7 +375,7 @@ object MirrorMaker extends Logging with KafkaMetricsGroup {
   private[tools] class MirrorMakerProducer(val sync: Boolean, val producerProps: Properties) {
 
     // Generate password from executable
-    producerProps.putAll(generateSslPasswords(producerProps))
+    producerProps.asInstanceOf[util.Hashtable[Object, Object]].putAll(generateSslPasswords(producerProps))
 
     val producer = new KafkaProducer[Array[Byte], Array[Byte]](producerProps)
 
