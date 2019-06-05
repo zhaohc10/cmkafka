@@ -140,7 +140,7 @@ class ServerShutdownTest extends ZooKeeperTestHarness {
     newProps.setProperty(KafkaConfig.ZkConnectionTimeoutMsProp, "50")
     newProps.setProperty(KafkaConfig.ZkConnectProp, "some.invalid.hostname.foo.bar.local:65535")
     val newConfig = KafkaConfig.fromProps(newProps)
-    verifyCleanShutdownAfterFailedStartup[ZooKeeperClientTimeoutException](newConfig)
+    verifyCleanShutdownAfterFailedStartup[IllegalArgumentException](newConfig)
   }
 
   @Test
