@@ -112,7 +112,7 @@ LATEST_CDH = CDH_6_0_0
 
 DEV_BRANCH = KafkaVersion("dev")
 DEV_VERSION = KafkaVersion("2.4.2-SNAPSHOT")
-DEV_VERSION = KafkaVersion("2.4.2-cdh6.x-SNAPSHOT")
+DEV_VERSION = KafkaVersion("2.4.0-kafka-conviva-hzhao")
 
 # 0.8.2.x versions
 V_0_8_2_1 = KafkaVersion("0.8.2.1")
